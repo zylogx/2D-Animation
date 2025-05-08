@@ -24,8 +24,8 @@ struct Sprite
 
         frameRec = {
             0, 0,
-            (float)frameWidth,
-            (float)frameHeight
+            static_cast<float>(frameWidth),
+            static_cast<float>(frameHeight)
         };
 
         currentFrame = 0;
