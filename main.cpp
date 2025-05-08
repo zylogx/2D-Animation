@@ -3,9 +3,81 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui/src/raygui.h"
 
-#define FRAME_COLUMNS 5
-#define FRAME_ROWS 3
-#define TOTAL_FRAMES (FRAME_COLUMNS*FRAME_ROWS)
+struct Sprite
+{
+    Texture2D spriteSheet;
+    int frameWidth;
+    int frameHeight;
+    Rectangle frameRec;
+
+    int currentFrame;
+    int frameCounter;
+    float frameSpeed;
+    float frameScale;
+
+    Sprite(const char* spriteSheetPath, int frameColumns, int frameRows)
+    {
+        spriteSheet = LoadTexture(spriteSheetPath);
+
+        frameWidth = spriteSheet.width/frameColumns;
+        frameHeight = spriteSheet.height/frameRows;
+
+        frameRec = {
+            0, 0,
+            (float)frameWidth,
+            (float)frameHeight
+        };
+
+        currentFrame = 0;
+        frameCounter = 0;
+        frameSpeed = 8.0f;
+        frameScale = 2.0f;
+    }
+
+    ~Sprite()
+    {
+        UnloadTexture(spriteSheet);
+    }
+
+    void Update(float frameScale_, float frameSpeed_, int selectedRow_)
+    {
+        const int framesPerRow = spriteSheet.width/frameWidth;
+
+        frameScale = frameScale_;
+        frameSpeed = frameSpeed_;
+
+        frameCounter++;
+        if (frameCounter >= (GetFPS()/frameSpeed))
+        {
+            currentFrame++;
+            if (currentFrame >= framesPerRow) currentFrame = 0;
+
+            int row = selectedRow_;
+            int col = currentFrame;
+
+            frameRec.x = col*frameWidth;
+            frameRec.y = row*frameHeight;
+
+            frameCounter = 0;
+        }
+    }
+
+    void Draw() const
+    {
+        DrawTexturePro(
+            spriteSheet,
+            frameRec,
+            (Rectangle){
+                80, 40,
+                frameRec.width*frameScale,
+                frameRec.height*frameScale
+            },
+            (Vector2){ 0, 0 },
+            0.0f,
+            WHITE
+        );
+    }
+};
 
 int main(void)
 {
@@ -14,66 +86,62 @@ int main(void)
 
     InitWindow(screenWidth, screenHeight, "");
 
-    Texture2D spriteSheet = LoadTexture("bat_sprite_sheet.png");
-
-    int frameWidth = spriteSheet.width/FRAME_COLUMNS;
-    int frameHeight = spriteSheet.height/FRAME_ROWS;
-
-    Rectangle frameRec = { 0, 0, static_cast<float>(frameWidth), static_cast<float>(frameHeight) };
-
-    int currentFrame = 0;
-    int frameCounter = 0;
-
     float frameSpeed = 8.0f;
+    float frameScale = 2.0f;
+
+    int selectedRow = 0;
+    bool dropdownEditMode = false;
+    const char* rowOptions = "Row 1;Row 2;Row 3";
 
     SetTargetFPS(60);
 
+    Sprite sprite {"bat_sprite_sheet.png", 5, 3};
+
     while (!WindowShouldClose())
     {
-        // Update
-        frameCounter++;
-        if (frameCounter >= (GetFPS()/frameSpeed))
-        {
-            currentFrame++;
-            if (currentFrame >= TOTAL_FRAMES) currentFrame = 0;
+        sprite.Update(frameScale, frameSpeed, selectedRow);
 
-            // Calculate frame rectangle based on row and column
-            int row = currentFrame/FRAME_COLUMNS;
-            int col = currentFrame%FRAME_COLUMNS;
-
-            frameRec.x = col*frameWidth;
-            frameRec.y = row*frameHeight;
-
-            frameCounter = 0;
-        }
-
-        // Draw
         BeginDrawing();
 
             ClearBackground(RAYWHITE);
-
             DrawFPS(10, 10);
-            DrawTextureRec(spriteSheet, frameRec, (Vector2){80.0f, 40.0f}, WHITE);
 
-            const int uiTranformsLeft = screenWidth - 250;
-            GuiGroupBox((Rectangle){ uiTranformsLeft, 20, 230, 300 }, "Settings");
+            sprite.Draw();
 
-            //----------------------------------------------------------------
+            const int uiLeft = screenWidth - 250;
+            GuiGroupBox((Rectangle){ uiLeft, 20, 230, 180 }, "Settings");
+
             GuiSliderBar(
-                (Rectangle){ uiTranformsLeft + 80, 50 + 20*0, 100, 15 }, 
-                "Frame Speed", 
-                TextFormat("%3.2f", frameSpeed), 
-                &frameSpeed, 
-                1.0f, 
+                (Rectangle){ uiLeft + 80, 50 + 20*0, 100, 15 },
+                "Frame Speed",
+                TextFormat("%3.2f", frameSpeed),
+                &frameSpeed,
+                1.0f,
                 20.0f
             );
+
+            GuiSliderBar(
+                (Rectangle){ uiLeft + 80, 50 + 20*1, 100, 15 },
+                "Frame Scale",
+                TextFormat("%1.2fx", frameScale),
+                &frameScale,
+                0.1f,
+                10.0f
+            );
+
+            if (GuiDropdownBox(
+                    (Rectangle){ uiLeft + 80, 50 + 20*2, 100, 20 },
+                    rowOptions,
+                    &selectedRow,
+                    dropdownEditMode
+                ))
+            {
+                dropdownEditMode = !dropdownEditMode;
+            }
 
         EndDrawing();
     }
 
-    // Unload resources
-    UnloadTexture(spriteSheet);
     CloseWindow();
-
     return 0;
 }
